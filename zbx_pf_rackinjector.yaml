@@ -1,0 +1,207 @@
+zabbix_export:
+  version: '6.4'
+  template_groups:
+    -
+      uuid: 57b7ae836ca64446ba2c296389c009b7
+      name: Templates/Modules
+  templates:
+    -
+      uuid: 2e3cc015290b4ef7b871e7674f9634bb
+      template: 'Packetflux Rackinjector'
+      name: 'Packetflux Rackinjector'
+      groups:
+        -
+          name: Templates/Modules
+      items:
+        -
+          uuid: fb927c65580847a7bd1eacfdbdd0edb1
+          name: 'Satellites in Use'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.32050.3.4.1.1.8.0.0
+          key: satellitesInUse
+          delay: 120s
+          history: 7d
+          triggers:
+            -
+              uuid: 940999c805054413a9f61b382bbfc342
+              expression: 'avg(/Packetflux Rackinjector/satellitesInUse,600s)=0'
+              name: 'Loss of satellite tracking'
+              priority: WARNING
+              description: 'Satellites in use has been 0 for the last 10 minutes'
+        -
+          uuid: 46600e679edf409fbe41f737e377c651
+          name: 'Satellites in View'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.32050.3.4.1.1.7.0.0
+          key: satellitesInView
+          delay: 120s
+          history: 7d
+      discovery_rules:
+        -
+          uuid: 5404fe010d934482bdd5b536c553ef7a
+          name: 'Network interfaces discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#IFDESCR},1.3.6.1.4.1.32050.3.3.1.1.3,{#IFPORTCURRENT},1.3.6.1.4.1.32050.3.3.1.1.12,{#IFPORTVOLTAGE},1.3.6.1.4.1.32050.3.3.1.1.11,{#IFPOWERTRANSITIONS},1.3.6.1.4.1.32050.3.3.1.1.13,{#IFPOWERTRIPPED},1.3.6.1.4.1.32050.3.3.1.1.5,{#IFPOWERENABLED},1.3.6.1.4.1.32050.3.3.1.1.4]'
+          key: net.if.discovery.test
+          filter:
+            evaltype: AND
+            conditions:
+              -
+                macro: '{#IFDESCR}'
+                value: '{$IFDESCR.MATCHES}'
+                formulaid: A
+          lifetime: 7d
+          item_prototypes:
+            -
+              uuid: 19760ac2acb24eb4abf1c953fb78aa81
+              name: 'Interface {#IFDESCR} ({#SNMPINDEX}): Port Current'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.32050.3.3.1.1.12.{#SNMPINDEX}'
+              key: 'power.control.port.current.[port.{#SNMPINDEX}]'
+              history: 7d
+              value_type: FLOAT
+              units: mA
+              preprocessing:
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - 'return Math.round(value/1000)'
+            -
+              uuid: dc2c922574334a0fb5ccf33be6d47cff
+              name: 'Interface {#IFDESCR} ({#SNMPINDEX}): Power Enabled'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.32050.3.3.1.1.4.{#SNMPINDEX}'
+              key: 'power.control.port.power.enabled.[port.{#SNMPINDEX}]'
+              delay: 5m
+              history: 7d
+              valuemap:
+                name: 'Power Port Enabled'
+            -
+              uuid: ad680f0ab8974158a00b836c00f9ebd2
+              name: 'Interface {#IFDESCR} ({#SNMPINDEX}): Power Transitions'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.32050.3.3.1.1.13.{#SNMPINDEX}'
+              key: 'power.control.port.power.transitions.[port.{#SNMPINDEX}]'
+              history: 7d
+            -
+              uuid: 634540d3c7e745c9828787e517b05b44
+              name: 'Interface {#IFDESCR} ({#SNMPINDEX}): Power Tripped'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.32050.3.3.1.1.5.{#SNMPINDEX}'
+              key: 'power.control.port.power.tripped.[port.{#SNMPINDEX}]'
+              history: 7d
+              valuemap:
+                name: 'Power Port Tripped'
+            -
+              uuid: 716aab2a7bfe496a81c364db0dd5f90a
+              name: 'Interface {#IFDESCR} ({#SNMPINDEX}): Port Voltage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.32050.3.3.1.1.11.{#SNMPINDEX}'
+              key: 'power.control.port.voltage.[port.{#SNMPINDEX}]'
+              history: 7d
+              value_type: FLOAT
+              units: V
+              preprocessing:
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - 'return Math.round(value/10000)/100'
+          graph_prototypes:
+            -
+              uuid: 11789bec96a048a3b80539e16b556b46
+              name: 'Interface {#IFDESCR} ({#SNMPINDEX}): Port Power'
+              graph_items:
+                -
+                  color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: 'Packetflux Rackinjector'
+                    key: 'power.control.port.current.[port.{#SNMPINDEX}]'
+                -
+                  sortorder: '1'
+                  color: '274482'
+                  calc_fnc: ALL
+                  item:
+                    host: 'Packetflux Rackinjector'
+                    key: 'power.control.port.voltage.[port.{#SNMPINDEX}]'
+          overrides:
+            -
+              name: 'Remove current item on interfaces that do not support monitoring'
+              step: '1'
+              filter:
+                conditions:
+                  -
+                    macro: '{#IFPORTCURRENT}'
+                    operator: NOT_EXISTS
+                    formulaid: A
+              operations:
+                -
+                  operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Port Current'
+                  status: DISABLED
+            -
+              name: 'Remove transitions item on interfaces that do not support monitoring'
+              step: '2'
+              filter:
+                conditions:
+                  -
+                    macro: '{#IFPOWERTRANSITIONS}'
+                    operator: NOT_EXISTS
+                    formulaid: A
+              operations:
+                -
+                  operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Power Transitions'
+                  status: DISABLED
+      tags:
+        -
+          tag: class
+          value: network
+        -
+          tag: target
+          value: packetflux
+      macros:
+        -
+          macro: '{$IFDESCR.MATCHES}'
+          value: '.*'
+      valuemaps:
+        -
+          uuid: 14ad5d4e6edb48888d2f1d22ea1d2305
+          name: 'Power Port Enabled'
+          mappings:
+            -
+              value: '1'
+              newvalue: Enabled
+            -
+              value: '2'
+              newvalue: 'Not Enabled'
+        -
+          uuid: add1ad03d72b417ab72a27464278cf61
+          name: 'Power Port Tripped'
+          mappings:
+            -
+              value: '1'
+              newvalue: Tripped
+            -
+              value: '2'
+              newvalue: 'Not Tripped'
+  graphs:
+    -
+      uuid: d88772b2745b4244a1376c25d28c0b9f
+      name: Satellites
+      graph_items:
+        -
+          color: 1A7C11
+          calc_fnc: ALL
+          item:
+            host: 'Packetflux Rackinjector'
+            key: satellitesInUse
+        -
+          sortorder: '1'
+          color: '274482'
+          calc_fnc: ALL
+          item:
+            host: 'Packetflux Rackinjector'
+            key: satellitesInView
