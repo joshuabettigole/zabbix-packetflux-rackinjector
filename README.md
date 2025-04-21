@@ -8,3 +8,5 @@ Template for Packetflux Rackinjector
 
 - Satellite Information (Tracked/Used)
 - Port power data (voltage/current/trips/transitions/etc)
+
+This does what I need it to do. Feature requests welcome.
